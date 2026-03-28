@@ -14,6 +14,7 @@ pub mod auto_update;
 pub mod autopilot;
 pub mod board;
 pub mod browser;
+pub mod completion;
 pub mod mcp;
 pub mod warden;
 pub mod watch;
@@ -184,6 +185,16 @@ pub enum Commands {
     /// Update Stakpak Agent to the latest version
     Update,
 
+    /// Generate shell completion scripts
+    ///
+    /// Prints a completion script for the given shell to stdout. Source or
+    /// install it according to your shell's documentation.
+    Completion {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
+
     /// Autonomous 24/7 lifecycle commands
     #[command(subcommand)]
     Autopilot(AutopilotCommands),
@@ -248,6 +259,7 @@ impl Commands {
                 | Commands::Config(_)
                 | Commands::Version
                 | Commands::Update
+                | Commands::Completion { .. }
                 | Commands::Acp { .. }
                 | Commands::Auth(_)
                 | Commands::Autopilot(_)
@@ -497,6 +509,10 @@ impl Commands {
             }
             Commands::Update => {
                 auto_update::run_auto_update(false).await?;
+            }
+            Commands::Completion { .. } => {
+                // Handled in main before AppConfig::load() so Cli::command() is in scope.
+                unreachable!("stakpak completion is handled before Commands::run()")
             }
             Commands::Autopilot(autopilot_command) => {
                 autopilot_command.run(config).await?;
