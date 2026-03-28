@@ -10,6 +10,7 @@ use stakpak_api::{AgentClient, AgentClientConfig, AgentProvider, StakpakConfig};
 pub mod acp;
 pub mod agent;
 pub mod auth;
+#[cfg(feature = "auto-update")]
 pub mod auto_update;
 pub mod autopilot;
 pub mod board;
@@ -182,6 +183,7 @@ pub enum Commands {
         args: Vec<String>,
     },
     /// Update Stakpak Agent to the latest version
+    #[cfg(feature = "auto-update")]
     Update,
 
     /// Autonomous 24/7 lifecycle commands
@@ -240,6 +242,10 @@ fn get_config_path_option(config: &AppConfig) -> Option<&Path> {
 
 impl Commands {
     pub fn requires_auth(&self) -> bool {
+        #[cfg(feature = "auto-update")]
+        if matches!(self, Commands::Update) {
+            return false;
+        }
         !matches!(
             self,
             Commands::Login { .. }
@@ -247,7 +253,6 @@ impl Commands {
                 | Commands::Set { .. }
                 | Commands::Config(_)
                 | Commands::Version
-                | Commands::Update
                 | Commands::Acp { .. }
                 | Commands::Auth(_)
                 | Commands::Autopilot(_)
@@ -495,6 +500,7 @@ impl Commands {
             Commands::Browser { args } => {
                 browser::run_browser(args).await?;
             }
+            #[cfg(feature = "auto-update")]
             Commands::Update => {
                 auto_update::run_auto_update(false).await?;
             }
@@ -517,10 +523,13 @@ impl Commands {
             }
             Commands::Acp { system_prompt_file } => {
                 // Force auto-update before starting ACP session (no prompt)
-                use crate::utils::check_update::force_auto_update;
-                if let Err(e) = force_auto_update().await {
-                    // Log error but continue - don't block ACP if update check fails
-                    eprintln!("Update check failed: {}", e);
+                #[cfg(feature = "auto-update")]
+                {
+                    use crate::utils::check_update::force_auto_update;
+                    if let Err(e) = force_auto_update().await {
+                        // Log error but continue - don't block ACP if update check fails
+                        eprintln!("Update check failed: {}", e);
+                    }
                 }
 
                 let system_prompt = if let Some(system_prompt_file_path) = &system_prompt_file {
